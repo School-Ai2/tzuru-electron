@@ -16,7 +16,6 @@ function createWindow() {
     icon: path.join(__dirname, 'src/assets/images/logo.png')
   });
 
-  // Set custom CSP headers
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -30,8 +29,7 @@ function createWindow() {
   // In development, we'll load the index.html directly
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
-  // Open DevTools in development mode
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -54,7 +52,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-// IPC handlers for communication between renderer and main processes
+
 ipcMain.handle('get-user-data', async () => {
   // This would eventually connect to a real authentication system
   return { success: true };
@@ -62,17 +60,102 @@ ipcMain.handle('get-user-data', async () => {
 
 // IPC handlers for communication with Ollama
 ipcMain.handle('check-ollama-connection', async () => {
-    try {
-      const response = await axios.get('http://localhost:11434/api/tags');
-      return response.status === 200;
-    } catch (error) {
-      console.error('Error checking Ollama connection:', error);
-      return false;
+  try {
+    const response = await axios.get('http://localhost:11434/api/tags');
+    return response.status === 200;
+  } catch (error) {
+    console.error('Error checking Ollama connection:', error);
+    return false;
+  }
+});
+
+// Store documents in memory (in a real app, you'd use a database)
+global.documents = {};
+
+// Handle document upload
+ipcMain.handle('upload-document', async (event, fileData) => {
+  try {
+    const { fileName, fileContent, fileType, userId } = fileData;
+    
+    const documentId = `doc_${Date.now()}`;
+    
+    if (!global.documents[userId]) {
+      global.documents[userId] = [];
     }
-  });
+    
+    global.documents[userId].push({
+      id: documentId,
+      name: fileName,
+      type: fileType,
+      content: fileContent,
+      uploadDate: new Date().toISOString()
+    });
+    
+    return {
+      success: true,
+      documentId,
+      message: `Document "${fileName}" uploaded successfully`
+    };
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    return {
+      success: false,
+      message: 'Failed to upload document: ' + error.message
+    };
+  }
+});
+
+// Get all documents for a user
+ipcMain.handle('get-documents', async (event, userId) => {
+  try {
+    return {
+      success: true,
+      documents: global.documents[userId] || []
+    };
+  } catch (error) {
+    console.error('Error retrieving documents:', error);
+    return {
+      success: false,
+      message: 'Failed to retrieve documents: ' + error.message
+    };
+  }
+});
+
+// Delete a document
+ipcMain.handle('delete-document', async (event, { userId, documentId }) => {
+  try {
+    if (!global.documents[userId]) {
+      return {
+        success: false,
+        message: 'No documents found for this user'
+      };
+    }
+    
+    const initialLength = global.documents[userId].length;
+    global.documents[userId] = global.documents[userId].filter(doc => doc.id !== documentId);
+    
+    if (global.documents[userId].length === initialLength) {
+      return {
+        success: false,
+        message: 'Document not found'
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'Document deleted successfully'
+    };
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    return {
+      success: false,
+      message: 'Failed to delete document: ' + error.message
+    };
+  }
+});
 
 ipcMain.handle('send-message', async (event, args) => {
-  const { message, conversationId, userType } = args;
+  const { message, conversationId, userType, userId, activeDocumentId, model, temperature } = args;
   
   try {
     // Format prompt based on user type
@@ -85,7 +168,14 @@ ipcMain.handle('send-message', async (event, args) => {
       systemPrompt = "You are Tzuru, a personalized AI learning assistant. Your goal is to help with learning and understanding complex topics. Be conversational, helpful, and adapt to the user's needs and preferences.";
     }
     
-    // Store conversation context (in a real app, this would be more sophisticated)
+    if (activeDocumentId && global.documents[userId]) {
+      const document = global.documents[userId].find(doc => doc.id === activeDocumentId);
+      if (document) {
+        systemPrompt += `\n\nThe user has provided a document titled "${document.name}". Here is the content of the document:\n\n${document.content}\n\nPlease use this document to inform your responses when relevant.`;
+      }
+    }
+    
+    // Store conversation context
     if (!global.conversations) {
       global.conversations = {};
     }
@@ -98,30 +188,26 @@ ipcMain.handle('send-message', async (event, args) => {
       };
     }
     
-    // Add the user message to the conversation
     global.conversations[conversationId].messages.push(
       { role: "user", content: message }
     );
     
     // Send to Ollama
-    const response = await fetch('http://localhost:11434/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama3.2', // Default model, could be configurable
-        messages: global.conversations[conversationId].messages,
-        stream: false
-      }),
+    const modelToUse = model || 'llama3.2';
+    const tempToUse = temperature || 0.7;
+    
+    const response = await axios.post('http://localhost:11434/api/chat', {
+      model: modelToUse,
+      messages: global.conversations[conversationId].messages,
+      temperature: tempToUse,
+      stream: false
     });
     
-    if (!response.ok) {
+    if (response.status !== 200) {
       throw new Error(`Ollama API error: ${response.statusText}`);
     }
     
-    const data = await response.json();
-    const aiResponse = data.message.content;
+    const aiResponse = response.data.message.content;
     
     // Add the AI response to the conversation history
     global.conversations[conversationId].messages.push(
@@ -138,7 +224,6 @@ ipcMain.handle('send-message', async (event, args) => {
 ipcMain.handle('reset-conversation', async (event, conversationId) => {
   // Reset the conversation
   if (global.conversations && global.conversations[conversationId]) {
-    // Keep only the system message
     const systemMessage = global.conversations[conversationId].messages.find(m => m.role === "system");
     global.conversations[conversationId].messages = systemMessage ? [systemMessage] : [];
   }

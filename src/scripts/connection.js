@@ -1,4 +1,4 @@
-// src/scripts/connection.js
+
 const { ipcRenderer } = require('electron');
 
 class ConnectionManager {
@@ -9,13 +9,13 @@ class ConnectionManager {
   }
   
   init() {
-    // Add status indicator to the UI if it doesn't exist
+    
     this.ensureStatusIndicatorExists();
     
-    // Initial connection check
+    
     this.checkOllamaConnection();
     
-    // Set up periodic connection checks
+    
     setInterval(() => this.checkOllamaConnection(), 30000); // Check every 30 seconds
   }
   
@@ -67,7 +67,7 @@ class ConnectionManager {
     }
   }
   
-  // Update the connection status UI
+  // connection status UI
   updateConnectionUI(connected) {
     if (!this.statusIndicator || !this.statusText) return;
     

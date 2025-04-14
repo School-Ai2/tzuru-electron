@@ -1,4 +1,3 @@
-// src/pages/user-selection.js
 function renderUserSelectionPage(container) {
     container.innerHTML = `
       <div class="container flex flex-center flex-column" style="height: 100vh;">
@@ -47,7 +46,6 @@ function renderUserSelectionPage(container) {
       </div>
     `;
     
-    // Get DOM elements
     const userTypeCards = document.querySelectorAll('.user-type-card');
     const continueBtn = document.getElementById('continue-btn');
     let selectedType = null;
@@ -55,13 +53,13 @@ function renderUserSelectionPage(container) {
     // Handle card selection
     userTypeCards.forEach(card => {
       card.addEventListener('click', () => {
-        // Remove selected class from all cards
+        
         userTypeCards.forEach(c => c.classList.remove('selected'));
         
-        // Add selected class to clicked card
+        
         card.classList.add('selected');
         
-        // Enable continue button
+        
         continueBtn.disabled = false;
         continueBtn.style.opacity = '1';
         continueBtn.style.cursor = 'pointer';

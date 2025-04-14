@@ -1,5 +1,8 @@
-// src/pages/chat.js
+
 function renderChatPage(container) {
+    console.log('Rendering chat page with userData:', userData);
+    console.log('Active document ID:', userData.activeDocumentId);
+    
     // Initial message
     const initialMessage = {
       sender: 'ai',
@@ -14,7 +17,7 @@ function renderChatPage(container) {
       <div class="chat-container">
         <div class="chat-sidebar">
           <div style="text-align: center; padding: 15px 0;">
-            <img src="src/assets/images/logo.svg" alt="Tzuru Logo" style="width: 40px; height: 40px;">
+            <img src="./src/assets/images/logo.png" alt="Tzuru Logo" style="width: 40px; height: 40px;">
             <h2 style="color: #4A2707; margin-top: 10px;">Tzuru</h2>
             <p style="color: #4A2707; font-size: 14px; margin-top: 5px;">
               Your AI Learning Assistant
@@ -27,17 +30,17 @@ function renderChatPage(container) {
             </div>
             
             ${userData.userType === 'individual' ? `
-              <div style="padding: 10px 20px; margin-top: 10px;">
+              <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
                 <span style="color: #4A2707;">My Documents</span>
               </div>
-              <div style="padding: 10px 20px; margin-top: 10px;">
+              <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
                 <span style="color: #4A2707;">Settings</span>
               </div>
             ` : userData.userType === 'teacher' ? `
-              <div style="padding: 10px 20px; margin-top: 10px;">
+              <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;">
                 <span style="color: #4A2707;">Lesson Plans</span>
               </div>
-              <div style="padding: 10px 20px; margin-top: 10px;">
+              <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;">
                 <span style="color: #4A2707;">Class Management</span>
               </div>
             ` : ''}
@@ -60,7 +63,7 @@ function renderChatPage(container) {
           <div class="status-container" style="position: absolute; bottom: 90px; left: 20px; width: calc(100% - 40px); display: flex; align-items: center; pointer-events: none;">
             <div class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #dc3545; margin-right: 10px;"></div>
             <span class="status-text" style="font-size: 12px; color: #4A2707;">Checking Ollama connection...</span>
-            </div>
+          </div>
         </div>
         
         <div class="chat-main">
@@ -106,50 +109,33 @@ function renderChatPage(container) {
     const chatForm = document.getElementById('chat-form');
     const chatMessages = document.getElementById('chat-messages');
     
-    // Initialize connection and message handlers
-    class ConnectionManager {
-      constructor() {
-        this.statusIndicator = document.querySelector('.status-indicator');
-        this.statusText = document.querySelector('.status-text');
-        this.isConnected = false;
+    // Set up navigation handlers
+    if (userData.userType === 'individual') {
+      const documentsNav = document.getElementById('documents-nav');
+      const settingsNav = document.getElementById('settings-nav');
+      
+      if (documentsNav) {
+        documentsNav.addEventListener('click', () => {
+          console.log('Navigating to documents page');
+          navigateToPage('documents');
+        });
+      } else {
+        console.error('Documents navigation element not found');
       }
       
-      init() {
-        // Initial connection check
-        this.checkOllamaConnection();
-        
-        // Set up periodic connection checks
-        setInterval(() => this.checkOllamaConnection(), 30000); // Check every 30 seconds
-      }
-      
-      // Check connection to Ollama
-      async checkOllamaConnection() {
-        try {
-          const isConnected = await window.electronAPI.checkOllamaConnection();
-          this.updateConnectionUI(isConnected);
-          this.isConnected = isConnected;
-          return isConnected;
-        } catch (error) {
-          console.error('Error checking Ollama connection:', error);
-          this.updateConnectionUI(false);
-          this.isConnected = false;
-          return false;
-        }
-      }
-      
-      // Update the connection status UI
-      updateConnectionUI(connected) {
-        if (!this.statusIndicator || !this.statusText) return;
-        
-        if (connected) {
-          this.statusIndicator.style.backgroundColor = '#28a745'; // Green
-          this.statusText.textContent = 'Connected to Ollama';
-        } else {
-          this.statusIndicator.style.backgroundColor = '#dc3545'; // Red
-          this.statusText.textContent = 'Disconnected from Ollama';
-        }
+      if (settingsNav) {
+        settingsNav.addEventListener('click', () => {
+          console.log('Navigating to settings page');
+          navigateToPage('settings');
+        });
+      } else {
+        console.error('Settings navigation element not found');
       }
     }
+    
+    // Initialize connection manager - use the global one
+    const connectionManager = new window.ConnectionManager();
+    connectionManager.init();
     
     class MessageHandler {
       constructor(connectionManager) {
@@ -158,6 +144,16 @@ function renderChatPage(container) {
         this.chatInput = document.getElementById('chat-input');
         this.sendBtn = document.getElementById('send-btn');
         this.currentConversationId = 'default';
+        
+        // Get active document ID if available - add debug log
+        console.log('userData in chat page:', userData);
+        this.activeDocumentId = userData.activeDocumentId || null;
+        console.log('Active document ID in chat:', this.activeDocumentId);
+        
+        // Show active document notification if one is selected
+        if (this.activeDocumentId) {
+          this.showActiveDocumentNotification();
+        }
       }
       
       init() {
@@ -193,6 +189,49 @@ function renderChatPage(container) {
               this.sendBtn.style.cursor = 'not-allowed';
             }
           });
+        }
+      }
+      
+      // Show notification about active document
+      showActiveDocumentNotification() {
+        console.log('Showing active document notification');
+        
+        const notification = document.createElement('div');
+        notification.className = 'document-notification';
+        notification.style.backgroundColor = 'rgba(244, 120, 52, 0.1)';
+        notification.style.padding = '10px 15px';
+        notification.style.borderRadius = '8px';
+        notification.style.marginBottom = '20px';
+        notification.style.display = 'flex';
+        notification.style.alignItems = 'center';
+        notification.style.justifyContent = 'space-between';
+        
+        const notificationText = document.createElement('div');
+        notificationText.innerHTML = `
+          <p style="margin: 0; color: #4A2707; font-weight: bold;">Active Document</p>
+          <p style="margin: 0; font-size: 14px; color: #666;">Tzuru will use this document to enhance responses</p>
+        `;
+        
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = 'Clear';
+        clearBtn.className = 'btn btn-secondary';
+        clearBtn.style.padding = '5px 10px';
+        clearBtn.style.fontSize = '12px';
+        clearBtn.addEventListener('click', () => {
+          this.activeDocumentId = null;
+          userData.activeDocumentId = null;
+          notification.remove();
+          console.log('Document context cleared');
+        });
+        
+        notification.appendChild(notificationText);
+        notification.appendChild(clearBtn);
+        
+        // Make sure the chat messages element exists before trying to append
+        if (this.chatMessages) {
+          this.chatMessages.insertAdjacentElement('afterbegin', notification);
+        } else {
+          console.error('Chat messages element not found');
         }
       }
       
@@ -249,11 +288,20 @@ function renderChatPage(container) {
         const message = this.chatInput.value.trim();
         if (!message) return;
         
+        // Debug log
+        console.log('Sending message with document ID:', this.activeDocumentId);
+        
         // Check connection first
         if (!this.connectionManager.isConnected) {
-          await this.connectionManager.checkOllamaConnection();
-          if (!this.connectionManager.isConnected) {
-            alert('Cannot send message: Ollama is not connected. Please ensure Ollama is running.');
+          try {
+            const isConnected = await this.connectionManager.checkOllamaConnection();
+            if (!isConnected) {
+              alert('Cannot send message: Ollama is not connected. Please ensure Ollama is running.');
+              return;
+            }
+          } catch (error) {
+            console.error('Error checking connection:', error);
+            alert('Error connecting to Ollama. Please refresh the page and try again.');
             return;
           }
         }
@@ -275,11 +323,19 @@ function renderChatPage(container) {
           // Show typing indicator
           this.showTypingIndicator();
           
+          // Get model and temperature from settings if available
+          const model = userData.settings?.model || 'llama3.2.2';
+          const temperature = userData.settings?.temperature || 0.7;
+          
           // Send to main process to handle API call
           const response = await window.electronAPI.sendMessage({
             message,
             conversationId: this.currentConversationId,
-            userType: userData.userType || 'individual'
+            userType: userData.userType || 'individual',
+            userId: userData.email || 'default-user',
+            activeDocumentId: this.activeDocumentId, // Include active document ID
+            model,
+            temperature
           });
           
           // Remove typing indicator
@@ -300,12 +356,15 @@ function renderChatPage(container) {
           }
         }
       }
+      
+      // Reset conversation when changing subjects or starting new chat
+      async resetConversation(newId = 'default') {
+        this.currentConversationId = newId;
+        await window.electronAPI.resetConversation(this.currentConversationId);
+      }
     }
     
-    // Initialize connection manager and message handler
-    const connectionManager = new ConnectionManager();
-    connectionManager.init();
-    
+    // Initialize message handler
     const messageHandler = new MessageHandler(connectionManager);
     messageHandler.init();
     
@@ -313,7 +372,7 @@ function renderChatPage(container) {
     function renderMessages() {
       const chatMessages = document.getElementById('chat-messages');
       
-      // Clear messages container
+      
       chatMessages.innerHTML = '';
       
       // Add all messages
@@ -333,6 +392,15 @@ function renderChatPage(container) {
         
         chatMessages.innerHTML += messageHtml;
       });
+      
+      // Show active document notification if applicable
+      if (userData.activeDocumentId) {
+        setTimeout(() => {
+          if (messageHandler && messageHandler.showActiveDocumentNotification) {
+            messageHandler.showActiveDocumentNotification();
+          }
+        }, 100);
+      }
       
       // Scroll to bottom
       chatMessages.scrollTop = chatMessages.scrollHeight;

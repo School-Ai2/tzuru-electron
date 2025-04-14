@@ -1,4 +1,4 @@
-// src/pages/welcome-guide.js
+
 function renderWelcomeGuidePage(container, userType) {
     // Define steps based on user type
     let steps;
@@ -170,7 +170,7 @@ function renderWelcomeGuidePage(container, userType) {
         </div>
       `;
       
-      // Add event listeners
+      
       document.getElementById('next-btn').addEventListener('click', () => {
         if (currentStep < steps.length - 1) {
           currentStep++;

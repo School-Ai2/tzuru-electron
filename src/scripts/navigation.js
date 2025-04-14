@@ -1,22 +1,27 @@
-// src/scripts/navigation.js
+
 let currentPage = null;
 let userData = {
   email: null,
-  userType: null
+  userType: null,
+  activeDocumentId: null,
+  settings: {
+    model: 'llama3.2',
+    temperature: 0.7
+  }
 };
 
 function navigateToPage(page, data = {}) {
-  // Update userData if provided
+  
   if (data.email) userData.email = data.email;
   if (data.userType) userData.userType = data.userType;
   
   currentPage = page;
   const container = document.getElementById('app-container');
   
-  // Clear container
+  
   container.innerHTML = '';
   
-  // Call the appropriate render function
+  
   switch (page) {
     case 'login':
       renderLoginPage(container);
@@ -29,6 +34,12 @@ function navigateToPage(page, data = {}) {
       break;
     case 'chat':
       renderChatPage(container);
+      break;
+    case 'documents':
+      renderDocumentsPage(container);
+      break;
+    case 'settings':
+      renderSettingsPage(container);
       break;
     default:
       renderLoginPage(container);

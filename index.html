@@ -2,7 +2,6 @@
 <html>
 <head>
   <meta charset="UTF-8">
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tzuru - Empowering Students. Supporting Teachers. With AI.</title>
   <link rel="stylesheet" href="src/assets/styles/global.css">
@@ -10,16 +9,25 @@
 <body>
   <div id="app-container"></div>
   
-  <!-- Core Navigation Script -->
+  
+  <script src="src/scripts/connection-manager.js"></script>
+  
   <script src="src/scripts/navigation.js"></script>
   
-  <!-- Page Scripts -->
+ 
   <script src="src/pages/login.js"></script>
   <script src="src/pages/user-selection.js"></script>
   <script src="src/pages/welcome-guide.js"></script>
   <script src="src/pages/chat.js"></script>
+  <script src="src/pages/documents.js"></script>
+  <script src="src/pages/settings.js"></script>
   
-  <!-- App Initialization -->
-  <script src="src/scripts/app.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Start with login page
+      navigateToPage('login');
+    });
+  </script>
 </body>
 </html>

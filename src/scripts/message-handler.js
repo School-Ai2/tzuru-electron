@@ -1,4 +1,4 @@
-// src/scripts/message-handler.js
+
 const { ipcRenderer } = require('electron');
 
 class MessageHandler {
@@ -11,7 +11,7 @@ class MessageHandler {
   }
   
   init() {
-    // Initialize event listeners
+    
     this.setupEventListeners();
   }
   
@@ -49,11 +49,11 @@ class MessageHandler {
     
     this.chatMessages.innerHTML += messageHtml;
     
-    // Scroll to bottom
+    
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
   }
   
-  // Show typing indicator
+  
   showTypingIndicator() {
     const typingIndicator = document.createElement('div');
     typingIndicator.id = 'typing-indicator';
@@ -72,7 +72,7 @@ class MessageHandler {
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
   }
   
-  // Hide typing indicator
+  
   hideTypingIndicator() {
     const typingIndicator = document.getElementById('typing-indicator');
     if (typingIndicator) {
@@ -108,27 +108,27 @@ class MessageHandler {
     }
     
     try {
-      // Show typing indicator
+      
       this.showTypingIndicator();
       
-      // Send to main process to handle API call
+      
       const response = await ipcRenderer.invoke('send-message', {
         message,
         conversationId: this.currentConversationId,
         userType: window.userData?.userType || 'individual'
       });
       
-      // Remove typing indicator
+   
       this.hideTypingIndicator();
       
-      // Add response to chat
+      
       this.addMessage(response);
     } catch (error) {
       console.error('Error:', error);
       this.hideTypingIndicator();
       this.addMessage('Error: Unable to get a response. Please check if Ollama is running.');
     } finally {
-      // Re-enable send button
+      
       if (this.sendBtn) {
         this.sendBtn.disabled = false;
         this.sendBtn.style.opacity = '1';
@@ -137,10 +137,11 @@ class MessageHandler {
     }
   }
   
-  // Reset conversation when changing subjects or starting new chat
+  
   async resetConversation(newId = 'default') {
     this.currentConversationId = newId;
     await ipcRenderer.invoke('reset-conversation', this.currentConversationId);
+    
   }
 }
 
