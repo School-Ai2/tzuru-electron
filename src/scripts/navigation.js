@@ -5,7 +5,7 @@ let userData = {
   userType: null,
   activeDocumentId: null,
   settings: {
-    model: 'llama3.2',
+    model: 'gemma3:4b',
     temperature: 0.7
   }
 };
@@ -45,3 +45,15 @@ function navigateToPage(page, data = {}) {
       renderLoginPage(container);
   }
 }
+function clearDocumentReferences() {
+    // Clear in userData
+    userData.activeDocumentId = null;
+    userData.deletedDocumentIds = [];
+    
+    // Clear in local storage if you're using it
+    if (window.localStorage) {
+      localStorage.removeItem('tzuru_activeDocumentId');
+    }
+    
+    console.log('All document references cleared');
+  }

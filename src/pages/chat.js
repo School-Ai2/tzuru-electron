@@ -3,6 +3,24 @@ function renderChatPage(container) {
     console.log('Rendering chat page with userData:', userData);
     console.log('Active document ID:', userData.activeDocumentId);
     
+    if (userData.activeDocumentId) {
+        // Verify the document still exists in main process
+        window.electronAPI.documentExists({
+          userId: userData.email || 'default-user',
+          documentId: userData.activeDocumentId
+        })
+        .then(exists => {
+          if (!exists) {
+            console.log('Referenced document does not exist, clearing reference');
+            userData.activeDocumentId = null;
+          }
+        })
+        .catch(err => {
+          console.error('Error checking document existence:', err);
+          // On error, assume document doesn't exist for safety
+          userData.activeDocumentId = null;
+        });
+      }
     // Initial message
     const initialMessage = {
       sender: 'ai',
@@ -284,78 +302,99 @@ function renderChatPage(container) {
       }
       
       // Send message to Ollama
-      async sendMessage() {
-        const message = this.chatInput.value.trim();
-        if (!message) return;
-        
-        // Debug log
-        console.log('Sending message with document ID:', this.activeDocumentId);
-        
-        // Check connection first
-        if (!this.connectionManager.isConnected) {
-          try {
-            const isConnected = await this.connectionManager.checkOllamaConnection();
-            if (!isConnected) {
-              alert('Cannot send message: Ollama is not connected. Please ensure Ollama is running.');
-              return;
-            }
-          } catch (error) {
-            console.error('Error checking connection:', error);
-            alert('Error connecting to Ollama. Please refresh the page and try again.');
-            return;
-          }
+      // Send message to Ollama
+// Send message to Ollama
+async sendMessage() {
+    const message = this.chatInput.value.trim();
+    if (!message) return;
+    
+    // Debug log
+    console.log('Sending message with document ID:', this.activeDocumentId);
+    
+    // Check connection first
+    if (!this.connectionManager.isConnected) {
+      try {
+        const isConnected = await this.connectionManager.checkOllamaConnection();
+        if (!isConnected) {
+          alert('Cannot send message: Ollama is not connected. Please ensure Ollama is running.');
+          return;
         }
-        
-        // Add user message to chat
-        this.addMessage(message, true);
-        
-        // Clear input
-        this.chatInput.value = '';
-        
-        // Disable send button
-        if (this.sendBtn) {
-          this.sendBtn.disabled = true;
-          this.sendBtn.style.opacity = '0.6';
-          this.sendBtn.style.cursor = 'not-allowed';
-        }
-        
-        try {
-          // Show typing indicator
-          this.showTypingIndicator();
+      } catch (error) {
+        console.error('Error checking connection:', error);
+        alert('Error connecting to Ollama. Please refresh the page and try again.');
+        return;
+      }
+    }
+    
+    // Add user message to chat
+    this.addMessage(message, true);
+    
+    // Clear input
+    this.chatInput.value = '';
+    
+    // Disable send button
+    if (this.sendBtn) {
+      this.sendBtn.disabled = true;
+      this.sendBtn.style.opacity = '0.6';
+      this.sendBtn.style.cursor = 'not-allowed';
+    }
+    
+    try {
+      // Show typing indicator
+      this.showTypingIndicator();
+      
+      // Check if the active document might have been deleted
+      if (this.activeDocumentId) {
+        // If we have any record of this document being deleted
+        if (userData.deletedDocumentIds && userData.deletedDocumentIds.includes(this.activeDocumentId)) {
+          console.warn('Active document was deleted, clearing reference');
+          this.activeDocumentId = null;
+          userData.activeDocumentId = null;
           
-          // Get model and temperature from settings if available
-          const model = userData.settings?.model || 'llama3.2.2';
-          const temperature = userData.settings?.temperature || 0.7;
-          
-          // Send to main process to handle API call
-          const response = await window.electronAPI.sendMessage({
-            message,
-            conversationId: this.currentConversationId,
-            userType: userData.userType || 'individual',
-            userId: userData.email || 'default-user',
-            activeDocumentId: this.activeDocumentId, // Include active document ID
-            model,
-            temperature
-          });
-          
-          // Remove typing indicator
-          this.hideTypingIndicator();
-          
-          // Add response to chat
-          this.addMessage(response);
-        } catch (error) {
-          console.error('Error:', error);
-          this.hideTypingIndicator();
-          this.addMessage('Error: Unable to get a response. Please check if Ollama is running.');
-        } finally {
-          // Re-enable send button if there's text in the input
-          if (this.sendBtn && this.chatInput.value.trim()) {
-            this.sendBtn.disabled = false;
-            this.sendBtn.style.opacity = '1';
-            this.sendBtn.style.cursor = 'pointer';
+          // Remove document notification if present
+          const notification = document.querySelector('.document-notification');
+          if (notification) {
+            notification.remove();
           }
+          
+          // Add a warning message to the chat
+          this.addMessage('Note: The previously active document is no longer available. This response will not include document context.');
         }
       }
+      
+      // Get model and temperature from settings if available
+      const model = userData.settings?.model || 'llama3';
+      const temperature = userData.settings?.temperature || 0.7;
+      
+      // Send to main process to handle API call
+      const response = await window.electronAPI.sendMessage({
+        message,
+        conversationId: this.currentConversationId,
+        userType: userData.userType || 'individual',
+        userId: userData.email || 'default-user',
+        activeDocumentId: this.activeDocumentId, // Include active document ID
+        model,
+        temperature
+      });
+      
+      // Remove typing indicator
+      this.hideTypingIndicator();
+      
+      // Add response to chat
+      this.addMessage(response);
+    } catch (error) {
+      console.error('Error:', error);
+      this.hideTypingIndicator();
+      this.addMessage('Error: Unable to get a response. Please check if Ollama is running.');
+    } finally {
+      // Re-enable send button if there's text in the input
+      if (this.sendBtn && this.chatInput.value.trim()) {
+        this.sendBtn.disabled = false;
+        this.sendBtn.style.opacity = '1';
+        this.sendBtn.style.cursor = 'pointer';
+      }
+    }
+  }
       
       // Reset conversation when changing subjects or starting new chat
       async resetConversation(newId = 'default') {

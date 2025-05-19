@@ -125,13 +125,19 @@ function renderDocumentsPage(container) {
   
   
   function navigateToChatWithDocument(documentId) {
+    // Verify document exists before setting as active
+    const docExists = documents.some(doc => doc.id === documentId);
     
+    if (!docExists) {
+      alert('The selected document is no longer available.');
+      return;
+    }
+    
+    // Store active document ID in userData
     userData.activeDocumentId = documentId;
-    
-    // Log to verify the ID is set correctly
     console.log('Setting active document ID:', documentId);
     
-    // Navigate to chat - make sure this function is called correctly
+    // Navigate to chat
     navigateToPage('chat');
   }
   
@@ -215,6 +221,10 @@ function renderDocumentsPage(container) {
             });
             
             if (result.success) {
+              // Clear all document references completely
+              clearDocumentReferences();
+              
+              // Reload documents list
               loadDocuments();
             } else {
               alert('Failed to delete document: ' + result.message);

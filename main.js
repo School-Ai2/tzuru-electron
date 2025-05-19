@@ -123,36 +123,69 @@ ipcMain.handle('get-documents', async (event, userId) => {
 
 // Delete a document
 ipcMain.handle('delete-document', async (event, { userId, documentId }) => {
-  try {
-    if (!global.documents[userId]) {
+    try {
+      if (!global.documents[userId]) {
+        return {
+          success: false,
+          message: 'No documents found for this user'
+        };
+      }
+      
+      const initialLength = global.documents[userId].length;
+      
+      // Check if the document being deleted is referenced in any conversation
+      if (global.conversations) {
+        for (const conversationId in global.conversations) {
+          // If this document is active in a conversation, reset that conversation
+          const systemMessage = global.conversations[conversationId].messages.find(m => m.role === "system");
+          if (systemMessage && systemMessage.content.includes(documentId)) {
+            // Keep only the base system message without document references
+            const baseSystemPrompt = systemMessage.content.split('\n\nThe user has provided a document')[0];
+            global.conversations[conversationId].messages = [
+              { role: "system", content: baseSystemPrompt }
+            ];
+            console.log(`Reset conversation ${conversationId} that was using deleted document ${documentId}`);
+          }
+        }
+      }
+      
+      // Now remove the document
+      global.documents[userId] = global.documents[userId].filter(doc => doc.id !== documentId);
+      
+      if (global.documents[userId].length === initialLength) {
+        return {
+          success: false,
+          message: 'Document not found'
+        };
+      }
+      
+      return {
+        success: true,
+        message: 'Document deleted successfully',
+        wasActive: true // This signals to the renderer that this was an active document
+      };
+    } catch (error) {
+      console.error('Error deleting document:', error);
       return {
         success: false,
-        message: 'No documents found for this user'
+        message: 'Failed to delete document: ' + error.message
       };
     }
-    
-    const initialLength = global.documents[userId].length;
-    global.documents[userId] = global.documents[userId].filter(doc => doc.id !== documentId);
-    
-    if (global.documents[userId].length === initialLength) {
-      return {
-        success: false,
-        message: 'Document not found'
-      };
+  });
+
+  ipcMain.handle('documentExists', async (event, { userId, documentId }) => {
+    console.log('Checking if document exists:', userId, documentId);
+    try {
+      if (!global.documents[userId]) {
+        return false;
+      }
+      
+      return global.documents[userId].some(doc => doc.id === documentId);
+    } catch (error) {
+      console.error('Error checking if document exists:', error);
+      return false;
     }
-    
-    return {
-      success: true,
-      message: 'Document deleted successfully'
-    };
-  } catch (error) {
-    console.error('Error deleting document:', error);
-    return {
-      success: false,
-      message: 'Failed to delete document: ' + error.message
-    };
-  }
-});
+  });
 
 ipcMain.handle('send-message', async (event, args) => {
   const { message, conversationId, userType, userId, activeDocumentId, model, temperature } = args;
@@ -174,6 +207,18 @@ ipcMain.handle('send-message', async (event, args) => {
         systemPrompt += `\n\nThe user has provided a document titled "${document.name}". Here is the content of the document:\n\n${document.content}\n\nPlease use this document to inform your responses when relevant.`;
       }
     }
+    let documentExists = false;
+    if (activeDocumentId && global.documents[userId]) {
+      const document = global.documents[userId].find(doc => doc.id === activeDocumentId);
+      if (document) {
+        documentExists = true;
+        systemPrompt += `\n\nThe user has provided a document titled "${document.name}". Here is the content of the document:\n\n${document.content}\n\nPlease use this document to inform your responses when relevant.`;
+      }
+    }
+    
+    // Log document status for debugging
+    console.log(`Document reference status: ID=${activeDocumentId}, exists=${documentExists}`);
+    
     
     // Store conversation context
     if (!global.conversations) {
@@ -193,7 +238,7 @@ ipcMain.handle('send-message', async (event, args) => {
     );
     
     // Send to Ollama
-    const modelToUse = model || 'llama3.2';
+    const modelToUse = model || 'gemma3:4b';
     const tempToUse = temperature || 0.7;
     
     const response = await axios.post('http://localhost:11434/api/chat', {

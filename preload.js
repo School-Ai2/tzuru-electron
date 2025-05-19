@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld(
     // Document functions
     uploadDocument: (fileData) => ipcRenderer.invoke('upload-document', fileData),
     getDocuments: (userId) => ipcRenderer.invoke('get-documents', userId),
-    deleteDocument: (data) => ipcRenderer.invoke('delete-document', data)
+    deleteDocument: (data) => ipcRenderer.invoke('delete-document', data),
+    documentExists: (data) => ipcRenderer.invoke('documentExists', data)
   }
 );
