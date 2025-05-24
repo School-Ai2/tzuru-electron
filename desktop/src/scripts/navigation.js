@@ -1,8 +1,3 @@
-async function setAuthToken(token) {
-  if (window.electronAPI && window.electronAPI.setAuthToken) {
-    await window.electronAPI.setAuthToken(token);
-  }
-}
 let currentPage = null;
 let userData = {
   _id: null,
@@ -21,8 +16,12 @@ async function checkAuthentication() {
   const token = window.localStorage.getItem('tzuru_token');
   
   if (token) {
-    await setAuthToken(token);
     try {
+      // Set token in main process
+      if (window.electronAPI && window.electronAPI.setAuthToken) {
+        await window.electronAPI.setAuthToken(token);
+      }
+      
       // Get user profile from API
       const response = await window.authAPI.getProfile();
       
@@ -112,9 +111,15 @@ function clearDocumentReferences() {
 }
 
 // Handle logout
-function logout() {
+async function logout() {
   // Clear token and userData
   window.localStorage.removeItem('tzuru_token');
+  
+  // Clear auth token in main process
+  if (window.electronAPI && window.electronAPI.logout) {
+    await window.electronAPI.logout();
+  }
+  
   userData = {
     _id: null,
     name: null,
@@ -130,6 +135,9 @@ function logout() {
   // Navigate to login page
   navigateToPage('login');
 }
+
+// Make logout function global so it can be called from UI
+window.logout = logout;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', async () => {

@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld(
     // Authentication functions
     login: (credentials) => ipcRenderer.invoke('login', credentials),
     getUserData: () => ipcRenderer.invoke('get-user-data'),
+    logout: () => ipcRenderer.invoke('logout'),
     
     // Chat functions
     sendMessage: (args) => ipcRenderer.invoke('send-message', args),
@@ -16,6 +17,8 @@ contextBridge.exposeInMainWorld(
     getDocuments: (userId) => ipcRenderer.invoke('get-documents', userId),
     deleteDocument: (data) => ipcRenderer.invoke('delete-document', data),
     documentExists: (data) => ipcRenderer.invoke('documentExists', data),
+    
+    // Token management
     setAuthToken: (token) => ipcRenderer.invoke('set-auth-token', token)
   }
 );

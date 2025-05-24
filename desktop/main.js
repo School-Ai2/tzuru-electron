@@ -363,3 +363,8 @@ ipcMain.handle('set-auth-token', async (event, token) => {
   authToken = token;
   return true;
 });
+
+ipcMain.handle('logout', async (event) => {
+  authToken = null;
+  return true;
+});
