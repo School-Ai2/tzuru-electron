@@ -274,3 +274,92 @@ ipcMain.handle('reset-conversation', async (event, conversationId) => {
   }
   return true;
 });
+
+// Store auth token in memory (in production, use secure storage)
+let authToken = null;
+
+// Auth API handlers
+ipcMain.handle('auth-register', async (event, userData) => {
+  try {
+    const response = await axios.post('http://localhost:5001/api/auth/register', userData);
+    authToken = response.data.token;
+    return response.data;
+  } catch (error) {
+    console.error('Registration error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('auth-login', async (event, credentials) => {
+  try {
+    const response = await axios.post('http://localhost:5001/api/auth/login', credentials);
+    authToken = response.data.token;
+    return response.data;
+  } catch (error) {
+    console.error('Login error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('auth-get-profile', async (event) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    const response = await axios.get('http://localhost:5001/api/auth/me', {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Get profile error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('auth-update-settings', async (event, settings) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    const response = await axios.put('http://localhost:5001/api/auth/settings', settings, {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Update settings error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('auth-update-usertype', async (event, userType) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    const response = await axios.put('http://localhost:5001/api/auth/usertype', 
+      { userType }, 
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Update usertype error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+// Update the token when it's stored in localStorage
+ipcMain.handle('set-auth-token', async (event, token) => {
+  authToken = token;
+  return true;
+});

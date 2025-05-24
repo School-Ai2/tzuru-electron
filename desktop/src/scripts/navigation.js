@@ -1,3 +1,8 @@
+async function setAuthToken(token) {
+  if (window.electronAPI && window.electronAPI.setAuthToken) {
+    await window.electronAPI.setAuthToken(token);
+  }
+}
 let currentPage = null;
 let userData = {
   _id: null,
@@ -16,6 +21,7 @@ async function checkAuthentication() {
   const token = window.localStorage.getItem('tzuru_token');
   
   if (token) {
+    await setAuthToken(token);
     try {
       // Get user profile from API
       const response = await window.authAPI.getProfile();

@@ -1,5 +1,4 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const { auth } = require('./src/utils/api');
 
 contextBridge.exposeInMainWorld(
   'electronAPI', {
@@ -16,18 +15,19 @@ contextBridge.exposeInMainWorld(
     uploadDocument: (fileData) => ipcRenderer.invoke('upload-document', fileData),
     getDocuments: (userId) => ipcRenderer.invoke('get-documents', userId),
     deleteDocument: (data) => ipcRenderer.invoke('delete-document', data),
-    documentExists: (data) => ipcRenderer.invoke('documentExists', data)
+    documentExists: (data) => ipcRenderer.invoke('documentExists', data),
+    setAuthToken: (token) => ipcRenderer.invoke('set-auth-token', token)
   }
 );
 
-// Expose API methods for authentication
+// Expose API methods for authentication through IPC
 contextBridge.exposeInMainWorld(
   'authAPI', {
-    register: (userData) => auth.register(userData),
-    login: (credentials) => auth.login(credentials),
-    getProfile: () => auth.getProfile(),
-    updateSettings: (settings) => auth.updateSettings(settings),
-    updateUserType: (userType) => auth.updateUserType(userType)
+    register: (userData) => ipcRenderer.invoke('auth-register', userData),
+    login: (credentials) => ipcRenderer.invoke('auth-login', credentials),
+    getProfile: () => ipcRenderer.invoke('auth-get-profile'),
+    updateSettings: (settings) => ipcRenderer.invoke('auth-update-settings', settings),
+    updateUserType: (userType) => ipcRenderer.invoke('auth-update-usertype', userType)
   }
 );
 
