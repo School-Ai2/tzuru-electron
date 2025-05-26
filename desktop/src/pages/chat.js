@@ -54,16 +54,23 @@ function renderChatPage(container) {
               <span style="color: #4A2707;">Settings</span>
             </div>
           ` : userData.userType === 'teacher' ? `
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;">
-              <span style="color: #4A2707;">Lesson Plans</span>
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
+              <span style="color: #4A2707;">My Classes</span>
             </div>
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;">
-              <span style="color: #4A2707;">Class Management</span>
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
+              <span style="color: #4A2707;">Settings</span>
+            </div>
+          ` : userData.userType === 'student' ? `
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
+              <span style="color: #4A2707;">My Classes</span>
+            </div>
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
+              <span style="color: #4A2707;">Settings</span>
             </div>
           ` : ''}
         </div>
         
-        <div style="position: absolute; bottom: 20px; left: 20px; max-width: 210px;">
+        <div style="position: absolute; bottom: 90px; left: 20px; width: calc(100% - 40px);">
           <div style="padding: 15px; background-color: rgba(244, 120, 52, 0.2); border-radius: 8px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center;">
@@ -159,6 +166,23 @@ function renderChatPage(container) {
       });
     } else {
       console.error('Settings navigation element not found');
+    }
+  } else if (userData.userType === 'teacher' || userData.userType === 'student') {
+    const classesNav = document.getElementById('classes-nav');
+    const settingsNav = document.getElementById('settings-nav');
+    
+    if (classesNav) {
+      classesNav.addEventListener('click', () => {
+        console.log('Navigating to classes page');
+        navigateToPage('classes');
+      });
+    }
+    
+    if (settingsNav) {
+      settingsNav.addEventListener('click', () => {
+        console.log('Navigating to settings page');
+        navigateToPage('settings');
+      });
     }
   }
   

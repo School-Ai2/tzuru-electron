@@ -19,6 +19,8 @@ app.use(cors());
 
 // Mount routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/classes', require('./routes/classes'));
+app.use('/api/documents', require('./routes/documents'));
 
 // Simple health check route
 app.get('/', (req, res) => {

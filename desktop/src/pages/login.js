@@ -152,17 +152,18 @@ function renderLoginPage(container) {
           return;
         }
         
-        // Register new user
+        // Register new user WITHOUT userType - let them choose
         const result = await window.authAPI.register({
           name,
           email,
           password
+          // Don't send userType here
         });
         
         // Store token and user data
         window.localStorage.setItem('tzuru_token', result.token);
         
-        // Update userData and navigate to user selection
+        // Update userData
         userData = {
           ...userData,
           _id: result.user._id,
@@ -171,14 +172,8 @@ function renderLoginPage(container) {
           settings: result.user.settings || userData.settings
         };
         
-        // If user already has a type, go to chat directly
-        if (result.user.userType) {
-          userData.userType = result.user.userType;
-          navigateToPage('chat');
-        } else {
-          // Otherwise, go to user type selection
-          navigateToPage('user-selection', { email: email });
-        }
+        // ALWAYS go to user selection for new signups
+        navigateToPage('user-selection', { email: email });
         
       } else {
         // Login existing user
@@ -204,7 +199,7 @@ function renderLoginPage(container) {
         if (result.user.userType) {
           navigateToPage('chat');
         } else {
-          // Otherwise, go to user type selection
+          // Otherwise, go to user type selection (shouldn't happen for existing users)
           navigateToPage('user-selection', { email: email });
         }
       }

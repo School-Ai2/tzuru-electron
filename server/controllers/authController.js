@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const jwt = require('jsonwebtoken' );
+const jwt = require('jsonwebtoken');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -13,7 +13,7 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, userType } = req.body;
+    const { name, email, password } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -25,12 +25,12 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Create user
+    // Create user WITHOUT userType - they'll select it after signup
     const user = await User.create({
       name,
       email,
-      password,
-      userType: userType || 'individual'
+      password
+      // userType will be set later
     });
 
     if (user) {
@@ -41,7 +41,7 @@ exports.register = async (req, res) => {
           _id: user._id,
           name: user.name,
           email: user.email,
-          userType: user.userType,
+          userType: user.userType, // Will be undefined/null
           settings: user.settings
         }
       });

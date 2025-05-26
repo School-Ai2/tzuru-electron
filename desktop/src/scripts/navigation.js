@@ -92,6 +92,12 @@ async function navigateToPage(page, data = {}) {
     case 'settings':
       renderSettingsPage(container);
       break;
+    case 'classes':
+      renderClassesPage(container);
+      break;
+    case 'class-details':
+      renderClassDetailsPage(container);
+      break;
     default:
       renderLoginPage(container);
   }

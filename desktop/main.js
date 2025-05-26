@@ -364,7 +364,93 @@ ipcMain.handle('set-auth-token', async (event, token) => {
   return true;
 });
 
+// Logout handler
 ipcMain.handle('logout', async (event) => {
   authToken = null;
   return true;
+});
+
+// Class API handlers
+ipcMain.handle('create-class', async (event, classData) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    const response = await axios.post('http://localhost:5001/api/classes', classData, {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Create class error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('get-my-classes', async (event) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    // Get user data to determine endpoint
+    const userResponse = await axios.get('http://localhost:5001/api/auth/me', {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    
+    const endpoint = userResponse.data.user.userType === 'teacher' ? 'teacher' : 'student';
+    
+    const response = await axios.get(`http://localhost:5001/api/classes/${endpoint}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Get classes error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('join-class', async (event, classCode) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    const response = await axios.post('http://localhost:5001/api/classes/join', 
+      { classCode }, 
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Join class error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
+});
+
+ipcMain.handle('get-class-documents', async (event, classId) => {
+  try {
+    if (!authToken) {
+      throw new Error('No authentication token');
+    }
+    
+    const response = await axios.get(`http://localhost:5001/api/documents/class/${classId}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Get class documents error:', error.response?.data || error.message);
+    throw error.response?.data || { message: error.message };
+  }
 });

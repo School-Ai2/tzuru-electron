@@ -23,8 +23,8 @@ const UserSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ['student', 'teacher', 'individual'],
-    default: 'individual'
+    enum: ['student', 'teacher', 'individual']
+    // Remove default so users must choose
   },
   createdAt: {
     type: Date,
