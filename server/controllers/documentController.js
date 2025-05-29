@@ -1,8 +1,11 @@
 const Document = require('../models/Document');
 const Class = require('../models/Class');
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs').promises;
+const { execFile } = require('child_process');
+const util = require('util');
+const path = require('path');
+const execFileAsync = util.promisify(execFile);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -23,7 +26,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /txt|pdf|docx|doc|md/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -101,11 +104,21 @@ exports.uploadDocument = async (req, res) => {
         });
       }
 
-      // Process the document to text
-      const processedContent = await processDocumentToText(
-        req.file.path, 
-        req.file.mimetype
-      );
+      const PYTHON_PATH = path.resolve(__dirname, '../venv/bin/python3');
+      const SPLITTER_PATH = path.resolve(__dirname, '../splitter.py');
+
+      let processedContent = '';
+      let chapterChunks = [];
+
+      try {
+        const { stdout } = await execFileAsync(PYTHON_PATH, [SPLITTER_PATH, req.file.path]);
+        chapterChunks = JSON.parse(stdout);
+        processedContent = chapterChunks.map(c => c.content).join('\n\n');
+      } catch (error) {
+        console.error('Chapter splitting failed:', error);
+        chapterChunks = [];
+        processedContent = 'Document processing failed or returned no content.';
+      }
 
       // Create document record
       const document = await Document.create({
@@ -115,7 +128,8 @@ exports.uploadDocument = async (req, res) => {
         uploadedBy: req.user._id,
         classId: classId,
         fileSize: req.file.size,
-        processingStatus: 'completed'
+        processingStatus: 'completed',
+        chapters: chapterChunks,
       });
 
       // Add document to class
@@ -124,6 +138,8 @@ exports.uploadDocument = async (req, res) => {
 
       // Delete the uploaded file after processing
       await fs.unlink(req.file.path);
+
+      console.log('Chapters:', chapterChunks.map(c => c.title));
 
       res.status(201).json({
         success: true,
