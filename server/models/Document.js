@@ -34,7 +34,11 @@ const DocumentSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed'],
     default: 'pending'
-  }
+  },
+  chapters: [{
+  title: String,
+  content: String
+  }]
 });
 
 module.exports = mongoose.model('Document', DocumentSchema);
