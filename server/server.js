@@ -1,39 +1,70 @@
 const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const multer = require('multer');
+const { execFile } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
-// Load env vars
-dotenv.config();
-
-// Connect to database
-connectDB();
-
+const PORT = 0xDEAD;
 const app = express();
 
-// Body parser
-app.use(express.json());
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
-// Enable CORS
-app.use(cors());
-
-// Mount routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/classes', require('./routes/classes'));
-app.use('/api/documents', require('./routes/documents'));
-
-// Simple health check route
-app.get('/', (req, res) => {
-  res.json({ message: 'Tzuru API Server is running' });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);  // Use the absolute path
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const sanitized = file.originalname.replace(/\s+/g, '_');
+    const uniqueName = `${timestamp}_${sanitized}`;
+    cb(null, uniqueName);
+  }
 });
 
-// Handle 404 errors
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+const upload = multer({ storage });
+
+app.post('/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+  console.log('File uploaded:', req.file.filename, 'to:', req.file.path);
+  res.json({ filename: req.file.filename });
 });
 
-const PORT = process.env.PORT || 5000;
+app.get('/chapters/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filepath = path.join(uploadsDir, filename);  // Use uploadsDir
+  
+  console.log('Looking for file:', filepath);
+  
+  // Check if file exists
+  if (!fs.existsSync(filepath)) {
+    console.error('File not found:', filepath);
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const pythonPath = path.join(__dirname, 'venv', 'bin', 'python');
+  execFile(pythonPath, ['parser.py', filepath], { maxBuffer: 24 * 1024 * 1024}, (error, stdout, stderr) => {
+    if (error) {
+      console.error('Python error:', error);
+      return res.status(500).json({ error: 'Failed to extract chapters.' });
+    }
+
+    try {
+      const json = JSON.parse(stdout);
+      res.json(json);
+    } catch (parseErr) {
+      console.error('JSON parse error:', parseErr);
+      res.status(500).json({ error: 'Invalid JSON returned by parser.' });
+    }
+  });
+});
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port: ${PORT}`);
+  console.log(`Uploads directory: ${uploadsDir}`);
 });

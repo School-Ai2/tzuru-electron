@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
 
 let mainWindow;
 
@@ -25,10 +27,7 @@ function createWindow() {
     });
   });
 
-  // In production, load the built app
-  // In development, we'll load the index.html directly
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
   mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
@@ -52,12 +51,6 @@ app.on('window-all-closed', () => {
   }
 });
 
-
-ipcMain.handle('get-user-data', async () => {
-  // This would eventually connect to a real authentication system
-  return { success: true };
-});
-
 // IPC handlers for communication with Ollama
 ipcMain.handle('check-ollama-connection', async () => {
   try {
@@ -69,13 +62,57 @@ ipcMain.handle('check-ollama-connection', async () => {
   }
 });
 
-// Store documents in memory (in a real app, you'd use a database)
+// Store documents and conversations in memory
 global.documents = {};
+global.conversations = {};
+global.contextHeaps = {}; // Store chapter context for each document
 
-// Handle document upload
+// Handle document upload to new backend
 ipcMain.handle('upload-document', async (event, fileData) => {
   try {
-    const { fileName, fileContent, fileType, userId } = fileData;
+    const { fileName, fileContent, userId } = fileData;
+    
+    console.log('Received upload request:', fileName, 'Content length:', fileContent?.length);
+    
+    if (!fileContent || fileContent.length === 0) {
+      throw new Error('No file content received');
+    }
+    
+    // Write the file content to a temporary file
+    const tempDir = path.join(__dirname, 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${fileName}`);
+    
+    // Convert array back to Buffer
+    const buffer = Buffer.from(fileContent);
+    fs.writeFileSync(tempFilePath, buffer);
+    
+    console.log('Wrote temp file:', tempFilePath, 'Size:', buffer.length);
+    
+    // Create form data and upload to backend server
+    const form = new FormData();
+    form.append('file', fs.createReadStream(tempFilePath));
+    
+    console.log('Uploading to backend...');
+    const uploadResponse = await axios.post('http://localhost:57005/upload', form, {
+      headers: form.getHeaders(),
+    });
+    
+    const backendFileName = uploadResponse.data.filename;
+    console.log('Backend filename:', backendFileName);
+    
+    // Clean up temp file
+    fs.unlinkSync(tempFilePath);
+    
+    // Fetch chapters from backend server
+    console.log('Fetching chapters...');
+    const chaptersResponse = await axios.get(`http://localhost:57005/chapters/${backendFileName}`);
+    const chapters = chaptersResponse.data.chapters;
+    
+    console.log('Received chapters:', chapters.length);
     
     const documentId = `doc_${Date.now()}`;
     
@@ -83,18 +120,27 @@ ipcMain.handle('upload-document', async (event, fileData) => {
       global.documents[userId] = [];
     }
     
+    // Store document info locally for UI
     global.documents[userId].push({
       id: documentId,
       name: fileName,
-      type: fileType,
-      content: fileContent,
+      backendFileName: backendFileName,
+      chapters: chapters,
       uploadDate: new Date().toISOString()
     });
+    
+    // Build context heap for AI conversations
+    const contextHeap = [];
+    for (const chapter of chapters) {
+      contextHeap.push(`${chapter.title}\n${chapter.content}`);
+    }
+    global.contextHeaps[documentId] = contextHeap;
     
     return {
       success: true,
       documentId,
-      message: `Document "${fileName}" uploaded successfully`
+      chapters: chapters,
+      message: `Document "${fileName}" uploaded and processed successfully`
     };
   } catch (error) {
     console.error('Error uploading document:', error);
@@ -123,102 +169,72 @@ ipcMain.handle('get-documents', async (event, userId) => {
 
 // Delete a document
 ipcMain.handle('delete-document', async (event, { userId, documentId }) => {
-    try {
-      if (!global.documents[userId]) {
-        return {
-          success: false,
-          message: 'No documents found for this user'
-        };
-      }
-      
-      const initialLength = global.documents[userId].length;
-      
-      // Check if the document being deleted is referenced in any conversation
-      if (global.conversations) {
-        for (const conversationId in global.conversations) {
-          // If this document is active in a conversation, reset that conversation
-          const systemMessage = global.conversations[conversationId].messages.find(m => m.role === "system");
-          if (systemMessage && systemMessage.content.includes(documentId)) {
-            // Keep only the base system message without document references
-            const baseSystemPrompt = systemMessage.content.split('\n\nThe user has provided a document')[0];
-            global.conversations[conversationId].messages = [
-              { role: "system", content: baseSystemPrompt }
-            ];
-            console.log(`Reset conversation ${conversationId} that was using deleted document ${documentId}`);
-          }
-        }
-      }
-      
-      // Now remove the document
-      global.documents[userId] = global.documents[userId].filter(doc => doc.id !== documentId);
-      
-      if (global.documents[userId].length === initialLength) {
-        return {
-          success: false,
-          message: 'Document not found'
-        };
-      }
-      
-      return {
-        success: true,
-        message: 'Document deleted successfully',
-        wasActive: true // This signals to the renderer that this was an active document
-      };
-    } catch (error) {
-      console.error('Error deleting document:', error);
+  try {
+    if (!global.documents[userId]) {
       return {
         success: false,
-        message: 'Failed to delete document: ' + error.message
+        message: 'No documents found for this user'
       };
     }
-  });
-
-  ipcMain.handle('documentExists', async (event, { userId, documentId }) => {
-    console.log('Checking if document exists:', userId, documentId);
-    try {
-      if (!global.documents[userId]) {
-        return false;
+    
+    const initialLength = global.documents[userId].length;
+    
+    // Remove document references from conversations
+    if (global.conversations) {
+      for (const conversationId in global.conversations) {
+        if (global.conversations[conversationId].activeDocumentId === documentId) {
+          global.conversations[conversationId].activeDocumentId = null;
+          global.conversations[conversationId].messages = [
+            { role: "system", content: "You are Tzuru, an AI learning assistant. Be helpful, encouraging, and patient." }
+          ];
+        }
       }
-      
-      return global.documents[userId].some(doc => doc.id === documentId);
-    } catch (error) {
-      console.error('Error checking if document exists:', error);
+    }
+    
+    // Remove the document and its context heap
+    global.documents[userId] = global.documents[userId].filter(doc => doc.id !== documentId);
+    delete global.contextHeaps[documentId];
+    
+    if (global.documents[userId].length === initialLength) {
+      return {
+        success: false,
+        message: 'Document not found'
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'Document deleted successfully'
+    };
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    return {
+      success: false,
+      message: 'Failed to delete document: ' + error.message
+    };
+  }
+});
+
+// Check if document exists
+ipcMain.handle('documentExists', async (event, { userId, documentId }) => {
+  try {
+    if (!global.documents[userId]) {
       return false;
     }
-  });
+    
+    return global.documents[userId].some(doc => doc.id === documentId);
+  } catch (error) {
+    console.error('Error checking if document exists:', error);
+    return false;
+  }
+});
 
+// Send message with document context
 ipcMain.handle('send-message', async (event, args) => {
-  const { message, conversationId, userType, userId, activeDocumentId, model, temperature } = args;
+  const { message, conversationId, userId, activeDocumentId, model, temperature } = args;
   
   try {
-    // Format prompt based on user type
-    let systemPrompt;
-    if (userType === 'student') {
-      systemPrompt = "You are Tzuru, an AI learning assistant for students. Your goal is to help students understand concepts but not do their work for them. Encourage critical thinking and provide explanations that lead to understanding. Be friendly, encouraging, and patient.";
-    } else if (userType === 'teacher') {
-      systemPrompt = "You are Tzuru, an AI learning assistant for teachers. Your goal is to help create educational materials, suggest teaching strategies, and provide resources. Remember that teachers stay in control—you're just a supportive tool.";
-    } else {
-      systemPrompt = "You are Tzuru, a personalized AI learning assistant. Your goal is to help with learning and understanding complex topics. Be conversational, helpful, and adapt to the user's needs and preferences.";
-    }
-    
-    if (activeDocumentId && global.documents[userId]) {
-      const document = global.documents[userId].find(doc => doc.id === activeDocumentId);
-      if (document) {
-        systemPrompt += `\n\nThe user has provided a document titled "${document.name}". Here is the content of the document:\n\n${document.content}\n\nPlease use this document to inform your responses when relevant.`;
-      }
-    }
-    let documentExists = false;
-    if (activeDocumentId && global.documents[userId]) {
-      const document = global.documents[userId].find(doc => doc.id === activeDocumentId);
-      if (document) {
-        documentExists = true;
-        systemPrompt += `\n\nThe user has provided a document titled "${document.name}". Here is the content of the document:\n\n${document.content}\n\nPlease use this document to inform your responses when relevant.`;
-      }
-    }
-    
-    // Log document status for debugging
-    console.log(`Document reference status: ID=${activeDocumentId}, exists=${documentExists}`);
-    
+    let systemPrompt = "You are Tzuru, an AI learning assistant. Be helpful, encouraging, and patient.";
     
     // Store conversation context
     if (!global.conversations) {
@@ -227,18 +243,29 @@ ipcMain.handle('send-message', async (event, args) => {
     
     if (!global.conversations[conversationId]) {
       global.conversations[conversationId] = {
-        messages: [
-          { role: "system", content: systemPrompt }
-        ]
+        messages: [{ role: "system", content: systemPrompt }],
+        activeDocumentId: null
       };
     }
     
+    // Update active document for this conversation
+    global.conversations[conversationId].activeDocumentId = activeDocumentId;
+    
+    // Build context with document chapters if available
+    let contextualPrompt = message;
+    if (activeDocumentId && global.contextHeaps[activeDocumentId]) {
+      const contextHeap = global.contextHeaps[activeDocumentId];
+      // Add relevant chapters as context (for now, add all - could be optimized)
+      const documentContext = contextHeap.join('\n\n---\n\n');
+      contextualPrompt = `Based on the following document content, please answer the question:\n\n${documentContext}\n\nQuestion: ${message}`;
+    }
+    
     global.conversations[conversationId].messages.push(
-      { role: "user", content: message }
+      { role: "user", content: contextualPrompt }
     );
     
     // Send to Ollama
-    const modelToUse = model || 'gemma3:4b';
+    const modelToUse = model || 'llama3.2';
     const tempToUse = temperature || 0.7;
     
     const response = await axios.post('http://localhost:11434/api/chat', {
@@ -266,191 +293,12 @@ ipcMain.handle('send-message', async (event, args) => {
   }
 });
 
+// Reset conversation
 ipcMain.handle('reset-conversation', async (event, conversationId) => {
-  // Reset the conversation
   if (global.conversations && global.conversations[conversationId]) {
     const systemMessage = global.conversations[conversationId].messages.find(m => m.role === "system");
     global.conversations[conversationId].messages = systemMessage ? [systemMessage] : [];
+    global.conversations[conversationId].activeDocumentId = null;
   }
   return true;
-});
-
-// Store auth token in memory (in production, use secure storage)
-let authToken = null;
-
-// Auth API handlers
-ipcMain.handle('auth-register', async (event, userData) => {
-  try {
-    const response = await axios.post('http://localhost:5001/api/auth/register', userData);
-    authToken = response.data.token;
-    return response.data;
-  } catch (error) {
-    console.error('Registration error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('auth-login', async (event, credentials) => {
-  try {
-    const response = await axios.post('http://localhost:5001/api/auth/login', credentials);
-    authToken = response.data.token;
-    return response.data;
-  } catch (error) {
-    console.error('Login error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('auth-get-profile', async (event) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    const response = await axios.get('http://localhost:5001/api/auth/me', {
-      headers: {
-        Authorization: `Bearer ${authToken}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Get profile error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('auth-update-settings', async (event, settings) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    const response = await axios.put('http://localhost:5001/api/auth/settings', settings, {
-      headers: {
-        Authorization: `Bearer ${authToken}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Update settings error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('auth-update-usertype', async (event, userType) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    const response = await axios.put('http://localhost:5001/api/auth/usertype', 
-      { userType }, 
-      {
-        headers: {
-          Authorization: `Bearer ${authToken}`
-        }
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Update usertype error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-// Update the token when it's stored in localStorage
-ipcMain.handle('set-auth-token', async (event, token) => {
-  authToken = token;
-  return true;
-});
-
-// Logout handler
-ipcMain.handle('logout', async (event) => {
-  authToken = null;
-  return true;
-});
-
-// Class API handlers
-ipcMain.handle('create-class', async (event, classData) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    const response = await axios.post('http://localhost:5001/api/classes', classData, {
-      headers: {
-        Authorization: `Bearer ${authToken}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Create class error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('get-my-classes', async (event) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    // Get user data to determine endpoint
-    const userResponse = await axios.get('http://localhost:5001/api/auth/me', {
-      headers: {
-        Authorization: `Bearer ${authToken}`
-      }
-    });
-    
-    const endpoint = userResponse.data.user.userType === 'teacher' ? 'teacher' : 'student';
-    
-    const response = await axios.get(`http://localhost:5001/api/classes/${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${authToken}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Get classes error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('join-class', async (event, classCode) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    const response = await axios.post('http://localhost:5001/api/classes/join', 
-      { classCode }, 
-      {
-        headers: {
-          Authorization: `Bearer ${authToken}`
-        }
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Join class error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
-});
-
-ipcMain.handle('get-class-documents', async (event, classId) => {
-  try {
-    if (!authToken) {
-      throw new Error('No authentication token');
-    }
-    
-    const response = await axios.get(`http://localhost:5001/api/documents/class/${classId}`, {
-      headers: {
-        Authorization: `Bearer ${authToken}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Get class documents error:', error.response?.data || error.message);
-    throw error.response?.data || { message: error.message };
-  }
 });

@@ -3,27 +3,27 @@ function renderChatPage(container) {
   console.log('Active document ID:', userData.activeDocumentId);
   
   if (userData.activeDocumentId) {
-      // Verify the document still exists in main process
-      window.electronAPI.documentExists({
-        userId: userData.email || 'default-user',
-        documentId: userData.activeDocumentId
-      })
-      .then(exists => {
-        if (!exists) {
-          console.log('Referenced document does not exist, clearing reference');
-          userData.activeDocumentId = null;
-        }
-      })
-      .catch(err => {
-        console.error('Error checking document existence:', err);
-        // On error, assume document doesn't exist for safety
+    // Verify the document still exists
+    window.electronAPI.documentExists({
+      userId: userData.email,
+      documentId: userData.activeDocumentId
+    })
+    .then(exists => {
+      if (!exists) {
+        console.log('Referenced document does not exist, clearing reference');
         userData.activeDocumentId = null;
-      });
-    }
+      }
+    })
+    .catch(err => {
+      console.error('Error checking document existence:', err);
+      userData.activeDocumentId = null;
+    });
+  }
+  
   // Initial message
   const initialMessage = {
     sender: 'ai',
-    content: `Welcome to Tzuru! I'm your AI learning assistant. How can I help you today?`,
+    content: `Welcome to Tzuru! I'm your AI learning assistant. Upload a document to get started, or ask me anything!`,
     timestamp: new Date()
   };
   
@@ -57,12 +57,18 @@ function renderChatPage(container) {
             <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
               <span style="color: #4A2707;">My Classes</span>
             </div>
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
+              <span style="color: #4A2707;">My Documents</span>
+            </div>
             <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
               <span style="color: #4A2707;">Settings</span>
             </div>
           ` : userData.userType === 'student' ? `
             <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
               <span style="color: #4A2707;">My Classes</span>
+            </div>
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
+              <span style="color: #4A2707;">My Documents</span>
             </div>
             <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
               <span style="color: #4A2707;">Settings</span>
@@ -72,26 +78,14 @@ function renderChatPage(container) {
         
         <div style="position: absolute; bottom: 90px; left: 20px; width: calc(100% - 40px);">
           <div style="padding: 15px; background-color: rgba(244, 120, 52, 0.2); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center;">
-                <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
-                  <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
-                </div>
-                <div>
-                  <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
-                  <p style="color: #4A2707; font-size: 12px; margin: 0;">
-                    ${userData.userType ? userData.userType.charAt(0).toUpperCase() + userData.userType.slice(1) : 'User'}
-                  </p>
-                </div>
+            <div style="display: flex; align-items: center;">
+              <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
               </div>
-              <button 
-                onclick="window.logout()" 
-                style="padding: 6px 16px; background-color: transparent; color: #F47834; border: 1px solid #F47834; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;"
-                onmouseover="this.style.backgroundColor='#F47834'; this.style.color='white';"
-                onmouseout="this.style.backgroundColor='transparent'; this.style.color='#F47834';"
-              >
-                Logout
-              </button>
+              <div>
+                <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
+                <p style="color: #4A2707; font-size: 12px; margin: 0;">AI Learning Assistant</p>
+              </div>
             </div>
           </div>
         </div>
@@ -146,47 +140,32 @@ function renderChatPage(container) {
   const chatMessages = document.getElementById('chat-messages');
   
   // Set up navigation handlers
-  if (userData.userType === 'individual') {
-    const documentsNav = document.getElementById('documents-nav');
-    const settingsNav = document.getElementById('settings-nav');
-    
-    if (documentsNav) {
-      documentsNav.addEventListener('click', () => {
-        console.log('Navigating to documents page');
-        navigateToPage('documents');
-      });
-    } else {
-      console.error('Documents navigation element not found');
-    }
-    
-    if (settingsNav) {
-      settingsNav.addEventListener('click', () => {
-        console.log('Navigating to settings page');
-        navigateToPage('settings');
-      });
-    } else {
-      console.error('Settings navigation element not found');
-    }
-  } else if (userData.userType === 'teacher' || userData.userType === 'student') {
-    const classesNav = document.getElementById('classes-nav');
-    const settingsNav = document.getElementById('settings-nav');
-    
-    if (classesNav) {
-      classesNav.addEventListener('click', () => {
-        console.log('Navigating to classes page');
-        navigateToPage('classes');
-      });
-    }
-    
-    if (settingsNav) {
-      settingsNav.addEventListener('click', () => {
-        console.log('Navigating to settings page');
-        navigateToPage('settings');
-      });
-    }
+  const documentsNav = document.getElementById('documents-nav');
+  const settingsNav = document.getElementById('settings-nav');
+  const classesNav = document.getElementById('classes-nav');
+  
+  if (documentsNav) {
+    documentsNav.addEventListener('click', () => {
+      console.log('Navigating to documents page');
+      navigateToPage('documents');
+    });
   }
   
-  // Initialize connection manager - use the global one
+  if (settingsNav) {
+    settingsNav.addEventListener('click', () => {
+      console.log('Navigating to settings page');
+      navigateToPage('settings');
+    });
+  }
+  
+  if (classesNav) {
+    classesNav.addEventListener('click', () => {
+      console.log('Navigating to classes page');
+      navigateToPage('classes');
+    });
+  }
+  
+  // Initialize connection manager
   const connectionManager = new window.ConnectionManager();
   connectionManager.init();
   
@@ -198,8 +177,6 @@ function renderChatPage(container) {
       this.sendBtn = document.getElementById('send-btn');
       this.currentConversationId = 'default';
       
-      // Get active document ID if available - add debug log
-      console.log('userData in chat page:', userData);
       this.activeDocumentId = userData.activeDocumentId || null;
       console.log('Active document ID in chat:', this.activeDocumentId);
       
@@ -210,7 +187,6 @@ function renderChatPage(container) {
     }
     
     init() {
-      // Initialize event listeners
       this.setupEventListeners();
     }
     
@@ -261,8 +237,8 @@ function renderChatPage(container) {
       
       const notificationText = document.createElement('div');
       notificationText.innerHTML = `
-        <p style="margin: 0; color: #4A2707; font-weight: bold;">Active Document</p>
-        <p style="margin: 0; font-size: 14px; color: #666;">Tzuru will use this document to enhance responses</p>
+        <p style="margin: 0; color: #4A2707; font-weight: bold;">📄 Document Active</p>
+        <p style="margin: 0; font-size: 14px; color: #666;">Tzuru will use your uploaded document to enhance responses</p>
       `;
       
       const clearBtn = document.createElement('button');
@@ -280,11 +256,8 @@ function renderChatPage(container) {
       notification.appendChild(notificationText);
       notification.appendChild(clearBtn);
       
-      // Make sure the chat messages element exists before trying to append
       if (this.chatMessages) {
         this.chatMessages.insertAdjacentElement('afterbegin', notification);
-      } else {
-        console.error('Chat messages element not found');
       }
     }
     
@@ -304,8 +277,6 @@ function renderChatPage(container) {
       `;
       
       this.chatMessages.innerHTML += messageHtml;
-      
-      // Scroll to bottom
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
     
@@ -341,7 +312,6 @@ function renderChatPage(container) {
       const message = this.chatInput.value.trim();
       if (!message) return;
       
-      // Debug log
       console.log('Sending message with document ID:', this.activeDocumentId);
       
       // Check connection first
@@ -376,36 +346,16 @@ function renderChatPage(container) {
         // Show typing indicator
         this.showTypingIndicator();
         
-        // Check if the active document might have been deleted
-        if (this.activeDocumentId) {
-          // If we have any record of this document being deleted
-          if (userData.deletedDocumentIds && userData.deletedDocumentIds.includes(this.activeDocumentId)) {
-            console.warn('Active document was deleted, clearing reference');
-            this.activeDocumentId = null;
-            userData.activeDocumentId = null;
-            
-            // Remove document notification if present
-            const notification = document.querySelector('.document-notification');
-            if (notification) {
-              notification.remove();
-            }
-            
-            // Add a warning message to the chat
-            this.addMessage('Note: The previously active document is no longer available. This response will not include document context.');
-          }
-        }
-        
-        // Get model and temperature from settings if available
-        const model = userData.settings?.model || 'llama3';
+        // Get model and temperature from settings
+        const model = userData.settings?.model || 'llama3.2';
         const temperature = userData.settings?.temperature || 0.7;
         
         // Send to main process to handle API call
         const response = await window.electronAPI.sendMessage({
           message,
           conversationId: this.currentConversationId,
-          userType: userData.userType || 'individual',
-          userId: userData.email || 'default-user',
-          activeDocumentId: this.activeDocumentId, // Include active document ID
+          userId: userData.email,
+          activeDocumentId: this.activeDocumentId,
           model,
           temperature
         });
@@ -429,7 +379,7 @@ function renderChatPage(container) {
       }
     }
     
-    // Reset conversation when changing subjects or starting new chat
+    // Reset conversation
     async resetConversation(newId = 'default') {
       this.currentConversationId = newId;
       await window.electronAPI.resetConversation(this.currentConversationId);
@@ -443,8 +393,6 @@ function renderChatPage(container) {
   // Function to render messages
   function renderMessages() {
     const chatMessages = document.getElementById('chat-messages');
-    
-    
     chatMessages.innerHTML = '';
     
     // Add all messages

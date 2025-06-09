@@ -3,18 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tzuru - Empowering Students. Supporting Teachers. With AI.</title>
+  <title>Tzuru - AI Learning Assistant</title>
   <link rel="stylesheet" href="src/assets/styles/global.css">
 </head>
 <body>
   <div id="app-container"></div>
   
-  
+  <!-- Core scripts -->
   <script src="src/scripts/connection-manager.js"></script>
-  
   <script src="src/scripts/navigation.js"></script>
   
- 
+  <!-- Page scripts -->
   <script src="src/pages/login.js"></script>
   <script src="src/pages/user-selection.js"></script>
   <script src="src/pages/welcome-guide.js"></script>
@@ -23,11 +22,20 @@
   <script src="src/pages/settings.js"></script>
   <script src="src/pages/classes.js"></script>
   <script src="src/pages/class-details.js"></script>
-  
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Navigation is now handled by navigation.js
+      // Load settings from localStorage
+      try {
+        const savedSettings = window.localStorage.getItem('tzuru_settings');
+        if (savedSettings) {
+          userData.settings = JSON.parse(savedSettings);
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+      
+      // Navigation is handled by navigation.js
     });
   </script>
 </body>

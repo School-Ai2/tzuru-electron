@@ -26,26 +26,14 @@ function renderSettingsPage(container) {
         
         <div style="position: absolute; bottom: 20px; left: 20px; max-width: 210px;">
           <div style="padding: 15px; background-color: rgba(244, 120, 52, 0.2); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center;">
-                <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
-                  <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
-                </div>
-                <div>
-                  <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
-                  <p style="color: #4A2707; font-size: 12px; margin: 0;">
-                    ${userData.userType ? userData.userType.charAt(0).toUpperCase() + userData.userType.slice(1) : 'User'}
-                  </p>
-                </div>
+            <div style="display: flex; align-items: center;">
+              <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
               </div>
-              <button 
-                onclick="window.logout()" 
-                style="padding: 6px 16px; background-color: transparent; color: #F47834; border: 1px solid #F47834; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;"
-                onmouseover="this.style.backgroundColor='#F47834'; this.style.color='white';"
-                onmouseout="this.style.backgroundColor='transparent'; this.style.color='#F47834';"
-              >
-                Logout
-              </button>
+              <div>
+                <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
+                <p style="color: #4A2707; font-size: 12px; margin: 0;">AI Learning Assistant</p>
+              </div>
             </div>
           </div>
         </div>
@@ -65,11 +53,16 @@ function renderSettingsPage(container) {
           <div style="margin-bottom: 15px;">
             <label for="model-selector" style="display: block; margin-bottom: 5px; color: #4A2707;">Model</label>
             <select id="model-selector" class="form-control" style="width: 300px;">
-              <option value="llama3.2">Llama 3 (Default)</option>
-              <option value="llama3.2:8b">Llama 3 (8B)</option>
+              <option value="llama3.2">Llama 3.2 (Default)</option>
+              <option value="llama3.2:8b">Llama 3.2 (8B)</option>
+              <option value="llama3">Llama 3</option>
               <option value="mistral">Mistral</option>
               <option value="phi3">Phi-3</option>
+              <option value="gemma3">Gemma 3</option>
             </select>
+            <small style="color: #666; display: block; margin-top: 5px;">
+              Make sure the selected model is installed in Ollama before using it.
+            </small>
           </div>
           
           <div style="margin-bottom: 15px;">
@@ -79,6 +72,31 @@ function renderSettingsPage(container) {
               <span>More Focused</span>
               <span>More Creative</span>
             </div>
+            <small style="color: #666; display: block; margin-top: 5px;">
+              Lower values make responses more focused and deterministic, higher values make them more creative and varied.
+            </small>
+          </div>
+        </div>
+        
+        <div style="border-bottom: 1px solid #E0E0E0; padding-bottom: 20px; margin-bottom: 20px;">
+          <h3 style="color: #4A2707; margin-bottom: 15px;">Document Processing</h3>
+          
+          <div style="background-color: #F7F1EA; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <h4 style="color: #4A2707; margin: 0 0 10px 0; font-size: 16px;">How It Works</h4>
+            <ul style="color: #666; margin: 0; padding-left: 20px;">
+              <li>Upload PDF documents with clear chapter structure</li>
+              <li>Tzuru automatically extracts chapters using table of contents</li>
+              <li>Each chapter becomes part of the AI's context when you chat</li>
+              <li>Ask questions about the document content for enhanced responses</li>
+            </ul>
+          </div>
+          
+          <div style="background-color: rgba(244, 120, 52, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #F47834;">
+            <p style="margin: 0; color: #4A2707; font-weight: bold;">💡 Tip</p>
+            <p style="margin: 5px 0 0 0; color: #666;">
+              For best results, upload PDF documents with numbered chapters or clear section headings. 
+              Academic papers, textbooks, and technical manuals work particularly well.
+            </p>
           </div>
         </div>
         
@@ -139,16 +157,13 @@ function renderSettingsPage(container) {
       
       userData.settings = newSettings;
       
-      // If user is logged in, save to database
-      if (userData._id && window.localStorage.getItem('tzuru_token')) {
-        await window.authAPI.updateSettings(newSettings);
-        showStatus('Settings saved successfully!');
-      } else {
-        showStatus('Settings saved locally.');
-      }
+      // Save to localStorage for persistence
+      window.localStorage.setItem('tzuru_settings', JSON.stringify(newSettings));
+      
+      showStatus('Settings saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
-      showStatus('Failed to save settings to the server. Changes saved locally.', false);
+      showStatus('Failed to save settings.', false);
     }
   });
   
@@ -168,16 +183,13 @@ function renderSettingsPage(container) {
         // Update userData
         userData.settings = defaultSettings;
         
-        // If user is logged in, save to database
-        if (userData._id && window.localStorage.getItem('tzuru_token')) {
-          await window.authAPI.updateSettings(defaultSettings);
-          showStatus('Settings reset to defaults.');
-        } else {
-          showStatus('Settings reset locally.');
-        }
+        // Save to localStorage
+        window.localStorage.setItem('tzuru_settings', JSON.stringify(defaultSettings));
+        
+        showStatus('Settings reset to defaults.');
       } catch (error) {
         console.error('Error resetting settings:', error);
-        showStatus('Failed to reset settings on the server. Changes saved locally.', false);
+        showStatus('Failed to reset settings.', false);
       }
     }
   });
