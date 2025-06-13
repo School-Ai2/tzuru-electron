@@ -32,7 +32,7 @@ function renderChatPage(container) {
   
   container.innerHTML = `
     <div class="chat-container">
-      <div class="chat-sidebar">
+      <div class="chat-sidebar" style="width: 280px; position: relative; min-height: 100vh; background: #FFE5CC;">
         <div style="text-align: center; padding: 15px 0;">
           <img src="./src/assets/images/logo.png" alt="Tzuru Logo" style="width: 40px; height: 40px;">
           <h2 style="color: #4A2707; margin-top: 10px;">Tzuru</h2>
@@ -40,65 +40,81 @@ function renderChatPage(container) {
             Your AI Learning Assistant
           </p>
         </div>
-        
         <div style="margin-top: 30px;">
           <div style="padding: 10px 20px; background-color: rgba(244, 120, 52, 0.2); border-left: 3px solid #F47834;">
             <span style="color: #4A2707; font-weight: bold;">Chat</span>
           </div>
-          
-          ${userData.userType === 'individual' ? `
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
-              <span style="color: #4A2707;">My Documents</span>
-            </div>
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
-              <span style="color: #4A2707;">Settings</span>
-            </div>
-          ` : userData.userType === 'teacher' ? `
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
-              <span style="color: #4A2707;">My Classes</span>
-            </div>
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
-              <span style="color: #4A2707;">My Documents</span>
-            </div>
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
-              <span style="color: #4A2707;">Settings</span>
-            </div>
-          ` : userData.userType === 'student' ? `
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
-              <span style="color: #4A2707;">My Classes</span>
-            </div>
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
-              <span style="color: #4A2707;">My Documents</span>
-            </div>
-            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
-              <span style="color: #4A2707;">Settings</span>
-            </div>
-          ` : ''}
+          <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
+            <span style="color: #4A2707;">My Classes</span>
+          </div>
+          <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
+            <span style="color: #4A2707;">My Documents</span>
+          </div>
+          <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
+            <span style="color: #4A2707;">Settings</span>
+          </div>
         </div>
-        
-        <div style="position: absolute; bottom: 90px; left: 20px; width: calc(100% - 40px);">
+        <div style="position: absolute; left: 0; right: 0; bottom: 20px; padding: 0 20px;">
           <div style="padding: 15px; background-color: rgba(244, 120, 52, 0.2); border-radius: 8px;">
-            <div style="display: flex; align-items: center;">
-              <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
-                <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                  <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
+                </div>
+                <div>
+                  <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
+                  <p style="color: #4A2707; font-size: 12px; margin: 0;">
+                    ${userData.userType ? userData.userType.charAt(0).toUpperCase() + userData.userType.slice(1) : 'User'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
-                <p style="color: #4A2707; font-size: 12px; margin: 0;">AI Learning Assistant</p>
-              </div>
+              <button 
+                onclick="window.logout()" 
+                style="padding: 6px 16px; background-color: transparent; color: #F47834; border: 1px solid #F47834; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;"
+                onmouseover="this.style.backgroundColor='#F47834'; this.style.color='white';"
+                onmouseout="this.style.backgroundColor='transparent'; this.style.color='#F47834';"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
-        
-        <div class="status-container" style="position: absolute; bottom: 20px; left: 20px; width: calc(100% - 40px); display: flex; align-items: center; pointer-events: none;">
-          <div class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #dc3545; margin-right: 10px;"></div>
-          <span class="status-text" style="font-size: 12px; color: #4A2707;">Checking Ollama connection...</span>
-        </div>
       </div>
-      
-      <div class="chat-main">
+      <div class="chat-main" style="background-color: #FFF; padding: 20px;">
         <div class="chat-messages" id="chat-messages">
           <!-- Messages will be rendered here -->
+        </div>
+        
+        <div class="context-bar" style="padding: 10px 15px; background-color: #f5f5f5; border-top: 1px solid #e0e0e0;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="position: relative;">
+              <button 
+                id="context-selector" 
+                style="padding: 8px 12px; background-color: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px;"
+              >
+                <span style="color: #666;">📄 Context</span>
+                <span style="color: #999;">▼</span>
+              </button>
+              <div 
+                id="context-dropdown" 
+                style="display: none; position: absolute; top: 100%; left: 0; width: 300px; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000;"
+              >
+                <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                  <input 
+                    type="text" 
+                    placeholder="Search context..." 
+                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                  >
+                </div>
+                <div id="context-list" style="max-height: 300px; overflow-y: auto;">
+                  <!-- Context items will be populated here -->
+                </div>
+              </div>
+            </div>
+            <div id="active-context" style="font-size: 14px; color: #666;">
+              No context selected
+            </div>
+          </div>
         </div>
         
         <form class="chat-input-container" id="chat-form">
@@ -389,6 +405,79 @@ function renderChatPage(container) {
   // Initialize message handler
   const messageHandler = new MessageHandler(connectionManager);
   messageHandler.init();
+  
+  // Initialize context selector
+  const contextSelector = document.getElementById('context-selector');
+  const contextDropdown = document.getElementById('context-dropdown');
+  const contextList = document.getElementById('context-list');
+  const activeContext = document.getElementById('active-context');
+  
+  if (contextSelector) {
+    contextSelector.addEventListener('click', () => {
+      const isVisible = contextDropdown.style.display === 'block';
+      contextDropdown.style.display = isVisible ? 'none' : 'block';
+      
+      if (!isVisible) {
+        // Populate context list when opening dropdown
+        populateContextList();
+      }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!contextSelector.contains(e.target) && !contextDropdown.contains(e.target)) {
+        contextDropdown.style.display = 'none';
+      }
+    });
+  }
+  
+  function populateContextList() {
+    if (!contextList) return;
+    
+    // Clear existing items
+    contextList.innerHTML = '';
+    
+    // Add "No Context" option
+    const noContextItem = document.createElement('div');
+    noContextItem.style.padding = '10px';
+    noContextItem.style.cursor = 'pointer';
+    noContextItem.style.borderBottom = '1px solid #eee';
+    noContextItem.innerHTML = 'No Context';
+    noContextItem.addEventListener('click', () => {
+      messageHandler.activeDocumentId = null;
+      userData.activeDocumentId = null;
+      activeContext.textContent = 'No context selected';
+      contextDropdown.style.display = 'none';
+      
+      // Remove any existing document notification
+      const existingNotification = document.querySelector('.document-notification');
+      if (existingNotification) {
+        existingNotification.remove();
+      }
+    });
+    contextList.appendChild(noContextItem);
+    
+    // Add user's documents as context options
+    if (userData.documents && userData.documents.length > 0) {
+      userData.documents.forEach(doc => {
+        const docItem = document.createElement('div');
+        docItem.style.padding = '10px';
+        docItem.style.cursor = 'pointer';
+        docItem.style.borderBottom = '1px solid #eee';
+        docItem.innerHTML = doc.name;
+        docItem.addEventListener('click', () => {
+          messageHandler.activeDocumentId = doc.id;
+          userData.activeDocumentId = doc.id;
+          activeContext.textContent = `Using: ${doc.name}`;
+          contextDropdown.style.display = 'none';
+          
+          // Show document notification
+          messageHandler.showActiveDocumentNotification();
+        });
+        contextList.appendChild(docItem);
+      });
+    }
+  }
   
   // Function to render messages
   function renderMessages() {

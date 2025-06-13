@@ -1,7 +1,7 @@
 function renderClassesPage(container) {
     container.innerHTML = `
       <div class="chat-container">
-        <div class="chat-sidebar">
+        <div class="chat-sidebar" style="width: 280px; position: relative; min-height: 100vh; background: #FFE5CC;">
           <div style="text-align: center; padding: 15px 0;">
             <img src="./src/assets/images/logo.png" alt="Tzuru Logo" style="width: 40px; height: 40px;">
             <h2 style="color: #4A2707; margin-top: 10px;">Tzuru</h2>
@@ -19,12 +19,16 @@ function renderClassesPage(container) {
               <span style="color: #4A2707; font-weight: bold;">My Classes</span>
             </div>
             
+            <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="documents-nav">
+              <span style="color: #4A2707;">My Documents</span>
+            </div>
+            
             <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="settings-nav">
               <span style="color: #4A2707;">Settings</span>
             </div>
           </div>
           
-          <div style="position: absolute; bottom: 90px; left: 20px; width: calc(100% - 40px);">
+          <div style="position: absolute; left: 0; right: 0; bottom: 20px; padding: 0 20px;">
             <div style="padding: 15px; background-color: rgba(244, 120, 52, 0.2); border-radius: 8px;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center;">
@@ -57,27 +61,14 @@ function renderClassesPage(container) {
         </div>
         
         <div class="chat-main" style="background-color: #FFF; padding: 20px;">
-          ${userData.userType === 'teacher' ? `
-            <!-- Teacher View -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <h2 style="color: #4A2707; margin: 0;">My Classes</h2>
-              <button id="create-class-btn" class="btn">Create New Class</button>
-            </div>
-            
-            <div id="classes-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-              <!-- Classes will be rendered here -->
-            </div>
-          ` : `
-            <!-- Student View -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <h2 style="color: #4A2707; margin: 0;">My Classes</h2>
-              <button id="join-class-btn" class="btn">Join Class</button>
-            </div>
-            
-            <div id="classes-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-              <!-- Classes will be rendered here -->
-            </div>
-          `}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color: #4A2707; margin: 0;">My Classes</h2>
+            <button class="btn" style="opacity: 0.5; cursor: not-allowed;">Create New Class</button>
+          </div>
+          
+          <div style="text-align: center; padding: 40px; color: #666;">
+            <p>Classes feature coming soon...</p>
+          </div>
         </div>
       </div>
       
@@ -129,6 +120,10 @@ function renderClassesPage(container) {
     // Navigation handlers
     document.getElementById('chat-nav').addEventListener('click', () => {
       navigateToPage('chat');
+    });
+    
+    document.getElementById('documents-nav').addEventListener('click', () => {
+      navigateToPage('documents');
     });
     
     document.getElementById('settings-nav').addEventListener('click', () => {

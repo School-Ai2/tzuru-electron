@@ -4,7 +4,7 @@ function renderDocumentsPage(container) {
   
   container.innerHTML = `
     <div class="chat-container">
-      <div class="chat-sidebar">
+      <div class="chat-sidebar" style="width: 280px; position: relative; min-height: 100vh; background: #FFE5CC;">
         <div style="text-align: center; padding: 15px 0;">
           <img src="./src/assets/images/logo.png" alt="Tzuru Logo" style="width: 40px; height: 40px;">
           <h2 style="color: #4A2707; margin-top: 10px;">Tzuru</h2>
@@ -18,6 +18,10 @@ function renderDocumentsPage(container) {
             <span style="color: #4A2707;">Chat</span>
           </div>
           
+          <div style="padding: 10px 20px; margin-top: 10px; cursor: pointer;" id="classes-nav">
+            <span style="color: #4A2707;">My Classes</span>
+          </div>
+          
           <div style="padding: 10px 20px; background-color: rgba(244, 120, 52, 0.2); border-left: 3px solid #F47834;">
             <span style="color: #4A2707; font-weight: bold;">My Documents</span>
           </div>
@@ -27,29 +31,39 @@ function renderDocumentsPage(container) {
           </div>
         </div>
         
-        <div style="position: absolute; bottom: 20px; left: 20px; max-width: 210px;">
+        <div style="position: absolute; left: 0; right: 0; bottom: 20px; padding: 0 20px;">
           <div style="padding: 15px; background-color: rgba(244, 120, 52, 0.2); border-radius: 8px;">
-            <div style="display: flex; align-items: center;">
-              <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
-                <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #F47834; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                  <span style="color: white;">${userData.email ? userData.email.charAt(0).toUpperCase() : 'U'}</span>
+                </div>
+                <div>
+                  <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
+                  <p style="color: #4A2707; font-size: 12px; margin: 0;">
+                    ${userData.userType ? userData.userType.charAt(0).toUpperCase() + userData.userType.slice(1) : 'User'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p style="color: #4A2707; font-size: 14px; margin: 0;">${userData.email || 'User'}</p>
-                <p style="color: #4A2707; font-size: 12px; margin: 0;">AI Learning Assistant</p>
-              </div>
+              <button 
+                onclick="window.logout()" 
+                style="padding: 6px 16px; background-color: transparent; color: #F47834; border: 1px solid #F47834; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;"
+                onmouseover="this.style.backgroundColor='#F47834'; this.style.color='white';"
+                onmouseout="this.style.backgroundColor='transparent'; this.style.color='#F47834';"
+              >
+                Logout
+              </button>
             </div>
           </div>
-        </div>
-        
-        <div class="status-container" style="position: absolute; bottom: 20px; left: 20px; width: calc(100% - 40px); display: flex; align-items: center; pointer-events: none;">
-          <div class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #dc3545; margin-right: 10px;"></div>
-          <span class="status-text" style="font-size: 12px; color: #4A2707;">Checking Ollama connection...</span>
         </div>
       </div>
       
       <div class="chat-main" style="background-color: #FFF; padding: 20px;">
-        <h2 style="color: #4A2707; margin-bottom: 20px;">My Documents</h2>
-      
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="color: #4A2707; margin: 0;">My Documents</h2>
+          <button id="upload-document-btn" class="btn">Upload Document</button>
+        </div>
+        
         <div style="display: flex; margin-bottom: 20px;">
           <div style="flex: 1;">
             <p style="color: #666; margin-bottom: 10px;">Upload PDF documents to enhance your learning experience. Tzuru will analyze the chapters and use them to provide more relevant and personalized responses.</p>
@@ -276,6 +290,10 @@ function renderDocumentsPage(container) {
   // Add click handlers for navigation
   document.getElementById('chat-nav').addEventListener('click', () => {
     navigateToPage('chat');
+  });
+
+  document.getElementById('classes-nav').addEventListener('click', () => {
+    navigateToPage('classes');
   });
 
   document.getElementById('settings-nav').addEventListener('click', () => {
