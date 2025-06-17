@@ -2,51 +2,87 @@ import sys
 import json
 import fitz  # PyMuPDF
 
-def contains_digit(text):
-    return any(char.isdigit() for char in text)
-
-def extract_chapters(pdf_path):
+def extract_hierarchy(pdf_path):
     doc = fitz.open(pdf_path)
-    toc = doc.get_toc()  # Table of contents: [level, title, page]
+    toc = doc.get_toc()  # Each entry: [level, title, page_number]
 
-    chapter_markers = []  # (page_number, chapter_title)
+    if not toc:
+        full_text = ""
+        for page in doc:
+            full_text += page.get_text()
 
-    # Identify top-level TOC entries that are likely chapter headings
-    for entry in toc:
+        return {
+            "chapters": [{
+                "id": "0",
+                "title": "Document",
+                "content": full_text.strip(),
+                "subchapters": []
+            }]
+        }
+
+    # Step 1: Separate chapter (level 1) and subchapter (level 2) entries
+    structure = []
+    current_chapter = None
+
+    for i, entry in enumerate(toc):
         level, title, page = entry
-        if level <= 1 and (contains_digit(title) or "chapter" in title.lower()):
-            chapter_markers.append((page, title))
+        if level == 1:
+            if current_chapter:
+                structure.append(current_chapter)
+            current_chapter = {
+                "title": title,
+                "start_page": page,
+                "subchapters": []
+            }
+        elif level == 2 and current_chapter:
+            current_chapter["subchapters"].append({
+                "title": title,
+                "start_page": page
+            })
 
-    original_len = len(chapter_markers)
-    found_end = False
-    for entry in toc:
-        level, title, page = entry
-        if found_end and level <= 1:
-            chapter_markers.append((page, "END"))
-            break
-        if chapter_markers and chapter_markers[-1][1] == title:
-            found_end = True
+    if current_chapter:
+        structure.append(current_chapter)
 
-    if len(chapter_markers) == original_len:
-        chapter_markers.append((doc.page_count, "END"))
+    # Step 2: Append end markers
+    for i, chapter in enumerate(structure):
+        if i < len(structure) - 1:
+            chapter["end_page"] = structure[i + 1]["start_page"]
+        else:
+            chapter["end_page"] = doc.page_count + 1  # +1 for exclusive range
 
-    chapters = []
-    for i in range(len(chapter_markers) - 1):
-        start_page = chapter_markers[i][0]
-        end_page = chapter_markers[i + 1][0]
-        title = chapter_markers[i][1]
-        
+        for j, sub in enumerate(chapter["subchapters"]):
+            if j < len(chapter["subchapters"]) - 1:
+                sub["end_page"] = chapter["subchapters"][j + 1]["start_page"]
+            else:
+                sub["end_page"] = chapter["end_page"]
+
+    # Step 3: Extract content
+    chapters_output = []
+    for chap_id, chapter in enumerate(structure):
         chapter_text = ""
-        for page_num in range(start_page - 1, end_page - 1):
+        for page_num in range(chapter["start_page"] - 1, chapter["end_page"] - 1):
             chapter_text += doc[page_num].get_text()
 
-        chapters.append({
-            "id": i,
-            "title": title,
-            "content": chapter_text.strip()
+        subchapters_output = []
+        for sub_id, sub in enumerate(chapter["subchapters"]):
+            sub_text = ""
+            for page_num in range(sub["start_page"] - 1, sub["end_page"] - 1):
+                sub_text += doc[page_num].get_text()
+
+            subchapters_output.append({
+                "id": f"{chap_id}.{sub_id}",
+                "title": sub["title"],
+                "content": sub_text.strip()
+            })
+
+        chapters_output.append({
+            "id": str(chap_id),
+            "title": chapter["title"],
+            "content": chapter_text.strip(),
+            "subchapters": subchapters_output
         })
 
-    return { "chapters": chapters }
+    return { "chapters": chapters_output }
 
 def main():
     if len(sys.argv) != 2:
@@ -55,7 +91,7 @@ def main():
 
     pdf_path = sys.argv[1]
     try:
-        result = extract_chapters(pdf_path)
+        result = extract_hierarchy(pdf_path)
         print(json.dumps(result, ensure_ascii=False))
     except Exception as e:
         print(json.dumps({ "error": str(e) }))

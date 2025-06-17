@@ -6,6 +6,8 @@ const FormData = require('form-data');
 const SERVER = 'http://localhost:57005';
 const FILE = 'input.pdf';
 
+
+
 var userContext = "";
 
 async function uploadFile(filePath) {
